@@ -1,0 +1,34 @@
+#Ахмад Разан 121 В1
+#Регион 32 Брянская область
+#для региона 32 рассчитайте урожайность пшеницы 
+#в 2015 году, взяв для рассчета средние суммы активных температур
+#за предыдущие 5 лет, с 11 ближайших метеостанций
+getwd()
+setwd("D:/Razan 121")
+
+library(tidyverse)
+library(rnoaa)
+#station_data = ghcnd_stations() 
+#write.csv(station_data, "station_data.csv")
+#Может занять несколько минут лучше выполнить один раз в месте с хорошим интернетом и сохранить результат
+station_data = read.csv("station_data.csv")
+#После получения всписка всех станций, получите список станций ближайших к столице вашего региона,создав таблицу с именем региона и координатами его столицы
+Bryansk = data.frame(id = "BRYANSK", latitude = 53.25209,  longitude = 34.37167)
+Bryansk_around = meteo_nearby_stations(lat_lon_df = Bryansk, station_data = station_data,
+                                    limit = 11, var = c("PRCP", "TAVG"),
+                                    year_min = 2010, year_max = 2015)
+#Bryansk_around это список единственным элементом которого является таблица, содержащая идентификаторы метеостанций отсортированных по их 
+# удалленности от Тулы, очевидно что первым элементом таблицы будет идентификатор метеостанции Тулы, его то мы и попытаемся получить
+Bryansk_id = Bryansk_around[["BRYANSK"]][["id"]][1]
+summary (Bryansk_id)
+Bryansk_table = data.frame (Bryansk_around) 
+summary (Bryansk_table) 
+all_pre_Bryansk = data.frame() 
+all_Bryansk_meteodata = data.frame() 
+for(i in 1:11) 
+{ 
+  all_pre_Bryansk=meteo_tidy_ghcnd(stationid =Bryansk_id, var="TAVG", date_min = "2010-01-01", date_max = "2013-12-31") 
+  all_Bryansk_meteodata=rbind(all_Bryansk_meteodata, all_pre_Bryansk) 
+} 
+write.csv (all_Bryansk_meteodata,"all_Bryansk_meteodata.csv")
+           
