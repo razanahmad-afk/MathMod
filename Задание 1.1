@@ -1,0 +1,89 @@
+#Ахмад Разан 121 В1
+#Регион 32 Брянская область
+#для региона 32 рассчитайте урожайность пшеницы 
+#в 2015 году, взяв для рассчета средние суммы активных температур
+#за предыдущие 5 лет, с 11 ближайших метеостанций
+getwd()
+setwd("D:/Razan 121")
+#Подключаем пакеты
+library(tidyverse)
+library(rnoaa)
+library(lubridate)
+#Скачиваем список метеостанций
+station_data = ghcnd_stations()
+write.csv(station_data, "station_data.csv")
+station_data = read.csv("station_data.csv")
+Bryansk = data.frame(id = "BRYANSK", latitude = 53.25209,  longitude = 34.37167)
+Bryansk_around = meteo_nearby_stations(lat_lon_df = Bryansk, station_data = station_data,
+                                       limit = 11, var = c("PRCP", "TAVG"),
+                                       year_min = 2010, year_max = 2015)
+#Получение индентификатора метеостанций Bryansk
+Bryansk_id = Bryansk_around[["BRYANSK"]][["id"]][1]
+#Смотрим что внутри
+summary (Bryansk_id)
+Bryansk_id
+#Создаем таблицу всех метеостанций вокруг Bryansk, выбрав целиком первый объект из списка
+Bryansk_table = Bryansk_around[[1]] 
+summary (Bryansk_table)
+all_Bryansk_data = meteo_tidy_ghcnd(stationid = Bryansk_id)
+all_Bryansk_data
+all_i = data.frame()
+all_Bryansk_meteodata = data.frame()
+#Цикл для всех метеостанций
+for(i in 1:11)
+{
+  print(i)
+  print(Bryansk_id)
+  #Выберем нужные свойства 
+ all_i = meteo_tidy_ghcnd(stationid = Bryansk_table$id [i])
+ all_i=all_i[,c("id","date","tavg")]
+ #Соединяем данные, полученные на предыдущих и данном этапах цикла
+ all_Bryansk_meteodata=rbind (all_Bryansk_meteodata, all_i)
+}
+#Записываем полученные результаты
+write.csv(all_Bryansk_meteodata,"all_Bryansk_meteodata.csv")
+#Cчитываем данные из файла
+all_Bryansk_meteodata=read.csv("all_Bryansk_meteodata.csv")
+#Посмотрим на данные
+str(all_Bryansk_meteodata)
+#Создаем строки год, месяц, день в таблице
+all_Bryansk_meteodata=mutate(all_Bryansk_meteodata, year=year(date),month=month(date),day=day(date))
+#Посмотрим на данные
+str(all_Bryansk_meteodata)
+#Отфильтруем данные за 2010-2015 год
+years_Bryansk_meteodata=filter(all_Bryansk_meteodata, year %in% c(2010:2015))
+#Проверим результат
+str(years_Bryansk_meteodata)
+summary(years_Bryansk_meteodata)
+years_Bryansk_meteodata[,"tavg"]=years_Bryansk_meteodata$tavg/10
+summary(years_Bryansk_meteodata)
+#Превратим в нули все NA и где  tavg <5
+years_Bryansk_meteodata[is.na(years_Bryansk_meteodata$tavg),"tavg"] = 0
+years_Bryansk_meteodata[years_Bryansk_meteodata$tavg<5, "tavg"] = 0
+summary(years_Bryansk_meteodata)
+#Группируем по метеостанциям, годам и месяцам
+alldays=group_by(years_Bryansk_meteodata,id,year,month)
+sumT_alldays_Bryansk=summarize(alldays,tsum=sum(tavg))
+summary(sumT_alldays_Bryansk)
+#Сгруппируем данные по месяцам
+groups_Bryansk_months=group_by(sumT_alldays_Bryansk,month)
+groups_Bryansk_months
+#Найдем для всех метеостанций и всех лет среднее по месяцам
+sumT_months=summarize(groups_Bryansk_months,St=mean(tsum))
+sumT_months
+#Ввод констант для расчета урожайности
+afi = c(0.000,0.000,0.000,32.110,26.310,25.640,23.200,18.730,16.300,13.830,0.000,0.000)
+bfi = c(0.000,0.000,0.000,11.300,9.260,9.030,8.160,6.590,5.730,4.870,0.000,0.000)
+di = c(0.000,0.000,0.000,0.330,1.000,1.000,1.000,0.320,0.000,0.000,0.000,0.000) #отношение числа дней i-го месяца входящих в период вегетации культуры, к общему числу дней в месяце
+y = 1.0 
+Kf = 300 #коэф использования ФАР посевом
+Qj = 1600 #калорийность урожая культуры
+Lj = 2.2 #сумма частей основной и побочной продукции
+Ej = 25 # Стандартная влажность культуры
+#Рассчитать Fi помесяца
+sumT_months=mutate(sumT_months,Fi=afi+bfi*y*St)
+#Рассчитаемть Yi
+sumT_months=mutate (sumT_months, Yi = ((Fi * di) * Kf) / (Qj * Lj * (100-Ej)) )
+#Расчитывать урожай как сумму по месяцам:
+Yield = sum(sumT_months$Yi); Yield
+
